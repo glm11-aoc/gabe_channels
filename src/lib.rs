@@ -9,7 +9,7 @@ struct QueueInternal<T: Clone + Send + Sync> {
     length: usize,
     read_offset: usize,
     write_offset: usize,
-    available: (Mutex<()>, Condvar),
+    available_read_write: (Mutex<()>, Condvar, Condvar),
     open: bool,
 }
 
@@ -47,7 +47,7 @@ unsafe impl<T: Clone + Send + Sync> Send for Queue<T> {}
 
 #[derive(Debug)]
 pub enum QueueErrors {
-    None,
+    NoneAvailable,
     Closed,
 }
 
@@ -63,7 +63,7 @@ impl<T: Clone + Send + Sync> Queue<T> {
             reference_counter: 1.into(),
             stack,
             length,
-            available: (Mutex::new(()), Condvar::new()),
+            available_read_write: (Mutex::new(()), Condvar::new(), Condvar::new()),
             read_offset: 0,
             write_offset: 0,
             open: true,
@@ -76,16 +76,16 @@ impl<T: Clone + Send + Sync> Queue<T> {
         return external;
     }
 
-    pub fn send(&mut self, item: T) -> Result<(), QueueErrors> {
+    pub fn write(&mut self, item: T) -> Result<(), QueueErrors> {
         // Access dance
         let ptr = self.obj;
         let obj = unsafe { &mut *ptr };
 
         // Waiting logic
-        let (lock, cvar) = &obj.available;
+        let (lock, read_cvar, write_cvar) = &obj.available_read_write;
         let mut available = lock.lock().unwrap();
         while obj.read_offset == self.update_offset(obj.write_offset) && obj.open {
-            available = cvar.wait(available).unwrap();
+            available = write_cvar.wait(available).unwrap();
         }
 
         // Channel is closed
@@ -96,7 +96,7 @@ impl<T: Clone + Send + Sync> Queue<T> {
         obj.stack[obj.write_offset] = Some(item);
         obj.write_offset = self.update_offset(obj.write_offset);
 
-        cvar.notify_one();
+        read_cvar.notify_one();
         Ok(())
     }
 
@@ -106,10 +106,10 @@ impl<T: Clone + Send + Sync> Queue<T> {
         let obj = unsafe { &mut *ptr };
 
         // Waiting logic
-        let (lock, cvar) = &obj.available;
+        let (lock, read_cvar, write_cvar) = &obj.available_read_write;
         let mut available = lock.lock().unwrap();
         while obj.read_offset == obj.write_offset && obj.open {
-            available = cvar.wait(available).unwrap();
+            available = read_cvar.wait(available).unwrap();
         }
 
         // Channel is closed
@@ -123,10 +123,10 @@ impl<T: Clone + Send + Sync> Queue<T> {
                 obj.read_offset = self.update_offset(obj.read_offset);
                 /* needs to notify all threads since I don't differentiate
                 the read and write mutex (probably should) */
-                cvar.notify_all();
+                write_cvar.notify_one();
                 Result::Ok(a.clone())
             }
-            None => panic!("You should never get here :-)"),
+            None => panic!("No value found in queue during syncronous call"),
         }
     }
 
@@ -140,10 +140,11 @@ impl<T: Clone + Send + Sync> Queue<T> {
         for i in 0..obj.length {
             obj.stack[i] = None
         }
-        let (lock, cvar) = &obj.available;
+        let (lock, read_cvar, write_cvar) = &obj.available_read_write;
         // notify all queues that this queue is closed
         let _guard = lock.lock().unwrap();
-        cvar.notify_all();
+        read_cvar.notify_all();
+        write_cvar.notify_all();
     }
     fn update_offset(&self, offset: usize) -> usize {
         // Access dance
@@ -170,7 +171,7 @@ mod tests {
         let mut result = 0;
         println!("1");
         let mut producer_queue = queue.clone();
-        producer_queue.send(1).expect("Failed to send");
+        producer_queue.write(1).expect("Failed to send");
         println!("Produced: {}", 1);
         println!("2");
         let mut consumer_queue = queue.clone();
@@ -180,7 +181,8 @@ mod tests {
     }
     #[test]
     fn threaded_test() {
-        const SIZE: usize = 1000000;
+        // if this is too big, it'll stack overflow unless you use --release :-(
+        const SIZE: usize = 10000;
         let queue = Queue::<usize>::new(5);
         let result = Arc::new(Mutex::new(Box::new([0; SIZE])));
         let res_clone = result.clone();
@@ -197,7 +199,7 @@ mod tests {
         let producer_thread = thread::spawn(move || {
             let mut i = 0;
             while i < SIZE {
-                producer_queue.send(i).expect("Failed to send");
+                producer_queue.write(i).expect("Failed to send");
                 i += 1;
             }
         });
