@@ -180,27 +180,33 @@ mod tests {
     }
     #[test]
     fn threaded_test() {
-        const SIZE: usize = 1000;
+        const SIZE: usize = 1000000;
         let queue = Queue::<usize>::new(5);
-        let result = Arc::new(Mutex::new([0; SIZE]));
+        let result = Arc::new(Mutex::new(Box::new([0; SIZE])));
         let res_clone = result.clone();
         let mut consumer_queue = queue.clone();
         let consumer_thread = thread::spawn(move || {
-            for i in 0..SIZE {
+            let mut i = 0;
+            while i < SIZE {
                 let mut res = res_clone.lock().unwrap();
                 res[i as usize] = consumer_queue.read().expect("Failed to receive");
+                i += 1;
             }
         });
         let mut producer_queue = queue.clone();
         let producer_thread = thread::spawn(move || {
-            for i in 0..SIZE {
+            let mut i = 0;
+            while i < SIZE {
                 producer_queue.send(i).expect("Failed to send");
+                i += 1;
             }
         });
         producer_thread.join().unwrap();
         consumer_thread.join().unwrap();
-        for i in 0..SIZE {
-            assert!(result.lock().unwrap()[i] == i)
+        let mut i = 0;
+        while i < SIZE {
+            assert!(result.lock().unwrap()[i] == i);
+            i += 1;
         }
     }
 }
