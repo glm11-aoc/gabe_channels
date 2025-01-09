@@ -1,0 +1,6 @@
+[package]
+name = "full_duplex_multi_channels"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
