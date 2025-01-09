@@ -92,7 +92,6 @@ impl<T: Clone + Send + Sync> Queue<T> {
         if !obj.open {
             return Err(QueueErrors::Closed);
         }
-        println!("Send: Read {}, Write {}", obj.read_offset, obj.write_offset);
         // Write logic
         obj.stack[obj.write_offset] = Some(item);
         obj.write_offset = self.update_offset(obj.write_offset);
@@ -109,7 +108,6 @@ impl<T: Clone + Send + Sync> Queue<T> {
         // Waiting logic
         let (lock, cvar) = &obj.available;
         let mut available = lock.lock().unwrap();
-        println!("Read: Read {}, Write {}", obj.read_offset, obj.write_offset);
         while obj.read_offset == obj.write_offset && obj.open {
             available = cvar.wait(available).unwrap();
         }
@@ -162,10 +160,7 @@ impl<T: Clone + Send + Sync> Queue<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::Arc,
-        thread
-    };
+    use std::{sync::Arc, thread};
 
     use super::*;
 
