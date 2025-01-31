@@ -1,6 +1,13 @@
 [package]
-name = "full_duplex_multi_channels"
+name = "gabe_channels"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
+[features]
+application = []
+device = []
+network = []
+default = ["application", "device", "network"]
+

@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "full_duplex_multi_channels"
+name = "gabe_channels"
 version = "0.1.0"
