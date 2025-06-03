@@ -1,9 +1,9 @@
 use crate::{ChannelErrors, Closeable, Counted, RChannel, WChannel};
+use std::mem::replace;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Condvar, Mutex,
 };
-use std::mem::replace;
 
 pub struct ApplicationChannel<T: Clone + Send + Sync> {
     reference_counter: AtomicUsize,

@@ -1,7 +1,6 @@
 mod application;
 pub mod channel;
 mod device;
-pub mod monodirectional;
 mod network;
 
 use application::ApplicationChannel;
