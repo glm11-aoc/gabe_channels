@@ -9,11 +9,11 @@ unsafe impl<T: Clone + Send + Sync> Send for Channel<T> {}
 impl<T: Clone + Send + Sync + 'static> Clone for Channel<T> {
     fn clone(&self) -> Self {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.increment_counter();
         return match self {
             Channel::Application(v) => Channel::Application(*v),
@@ -55,47 +55,47 @@ impl<T: Clone + Send + Sync + 'static> Channel<T> {
     }
     pub fn write(&mut self, val: T) -> Result<(), ChannelErrors> {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.write(val)
     }
     pub fn try_write(&mut self, val: T) -> Result<(), ChannelErrors> {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.try_write(val)
     }
     pub fn read(&mut self) -> Result<T, ChannelErrors> {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.read()
     }
     pub fn try_read(&mut self) -> Result<T, ChannelErrors> {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.try_read()
     }
     pub fn close(&self) {
         let ptr = match self {
-            Channel::Application(v) => v,
+            Channel::Application(v) => *v,
             Channel::Device(_) => todo!(),
             Channel::Network(_) => todo!(),
         };
-        let obj = unsafe { &mut **ptr };
+        let obj = unsafe { &mut *ptr };
         obj.close();
     }
 }

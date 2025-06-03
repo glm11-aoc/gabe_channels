@@ -3,6 +3,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Condvar, Mutex,
 };
+use std::mem::replace;
 
 pub struct ApplicationChannel<T: Clone + Send + Sync> {
     reference_counter: AtomicUsize,
@@ -85,13 +86,12 @@ impl<T: Clone + Send + Sync> RChannel<T> for ApplicationChannel<T> {
         }
 
         // Retrieval logic
-        match &self.stack[self.read_offset] {
-            Some(a) => {
-                self.read_offset = self.update_offset(self.read_offset);
-                /* needs to notify all threads since I don't differentiate
-                the read and write mutex (probably should) */
+        match &mut self.stack[self.read_offset] {
+            Some(_) => {
+                let res = Result::Ok(replace(&mut self.stack[self.read_offset], None).unwrap());
                 self.write_cvar.notify_one();
-                Result::Ok(a.clone())
+                self.read_offset = self.update_offset(self.read_offset);
+                res
             }
             None => panic!("No value found in queue during syncronous call"),
         }
@@ -114,8 +114,6 @@ impl<T: Clone + Send + Sync> RChannel<T> for ApplicationChannel<T> {
         match &self.stack[self.read_offset] {
             Some(a) => {
                 self.read_offset = self.update_offset(self.read_offset);
-                /* needs to notify all threads since I don't differentiate
-                the read and write mutex (probably should) */
                 self.write_cvar.notify_one();
                 Result::Ok(a.clone())
             }

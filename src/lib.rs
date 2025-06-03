@@ -51,12 +51,6 @@ trait WChannel<T> {
     fn try_write(&mut self, val: T) -> Result<(), ChannelErrors>;
 }
 
-/*
-pub struct Channel<T: Clone + Send + Sync> {
-    obj: ChannelType<T>,
-}
-*/
-
 #[cfg(test)]
 mod tests {
     use super::*;

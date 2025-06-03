@@ -5,9 +5,13 @@ edition = "2021"
 
 [dependencies]
 
+
 [features]
 application = []
 device = []
-network = []
+network = ["rustls"]
 default = ["application", "device", "network"]
 
+[dependencies.rustls]
+version = "0.23.22"
+optional = true
