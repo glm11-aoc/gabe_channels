@@ -10,11 +10,10 @@ fn application_channel_deadlock_test() {
     let consumer_thread = thread::spawn(move || {
         for expected in 0..1000 {
             let value = consumer_queue.read().expect("Failed to receive");
-            let actual = value;
             assert_eq!(
-                actual, expected,
+                value, expected,
                 "Received value {} but expected {} (out of order)",
-                actual, expected
+                value, expected
             );
         }
     });
