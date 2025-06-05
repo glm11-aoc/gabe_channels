@@ -4,14 +4,16 @@ mod device;
 mod network;
 
 use application::ApplicationChannel;
+use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum Channel<T: Clone + Send + Sync> {
     #[cfg(feature = "application")]
-    Application(*mut ApplicationChannel<T>),
+    Application(Arc<ApplicationChannel<T>>),
     #[cfg(feature = "device")]
-    Device(*mut ApplicationChannel<T>),
+    Device(Arc<ApplicationChannel<T>>),
     #[cfg(feature = "network")]
-    Network(*mut ApplicationChannel<T>),
+    Network(Arc<ApplicationChannel<T>>),
 }
 
 pub enum ChannelType {
@@ -26,28 +28,23 @@ pub enum ChannelType {
 #[derive(Debug)]
 pub enum ChannelErrors {
     NoneAvailable,
+    Poisoned,
     Full,
     Closed,
 }
 
-trait Counted {
-    fn increment_counter(&self);
-    fn decrement_counter(&self);
-    fn references(&self) -> usize;
-}
-
 trait Closeable {
-    fn close(&mut self);
+    fn close(&self);
 }
 
 trait RChannel<T> {
-    fn read(&mut self) -> Result<T, ChannelErrors>;
-    fn try_read(&mut self) -> Result<T, ChannelErrors>;
+    fn read(&self) -> Result<T, ChannelErrors>;
+    fn try_read(&self) -> Result<T, ChannelErrors>;
 }
 
 trait WChannel<T> {
-    fn write(&mut self, val: T) -> Result<(), ChannelErrors>;
-    fn try_write(&mut self, val: T) -> Result<(), ChannelErrors>;
+    fn write(&self, val: T) -> Result<(), ChannelErrors>;
+    fn try_write(&self, val: T) -> Result<(), ChannelErrors>;
 }
 
 #[cfg(test)]
@@ -76,7 +73,7 @@ mod tests {
     #[test]
     fn threaded_test() {
         // if this is too big, it'll stack overflow unless you use --release (thanks to storing the result) :-(
-        const SIZE: usize = 10000;
+        const SIZE: usize = 100;
         let queue = Channel::<usize>::new(ChannelType::Application, 5);
         let result = Arc::new(Mutex::new(vec![0; SIZE]));
         let res_clone = result.clone();
@@ -101,7 +98,7 @@ mod tests {
         consumer_thread.join().unwrap();
         let mut i = 0;
         while i < SIZE {
-            assert!(result.lock().unwrap()[i] == i);
+            assert_eq!(result.lock().unwrap()[i], i);
             i += 1;
         }
     }

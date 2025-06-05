@@ -1,138 +1,132 @@
-use crate::{ChannelErrors, Closeable, Counted, RChannel, WChannel};
+use crate::{ChannelErrors, Closeable, RChannel, WChannel};
 use std::mem::replace;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Condvar, Mutex,
 };
 
 pub struct ApplicationChannel<T: Clone + Send + Sync> {
-    reference_counter: AtomicUsize,
-    stack: Box<[Option<T>]>,
+    available: Mutex<ApplicationStack<T>>,
+    read_cvar: Condvar,
+    write_cvar: Condvar,
+}
+
+struct ApplicationStack<T: Clone + Send + Sync> {
+    buffer: Box<[Option<T>]>,
     length: usize,
     read_offset: usize,
     write_offset: usize,
-    available: Mutex<()>,
-    read_cvar: Condvar,
-    write_cvar: Condvar,
     open: bool,
 }
 
-impl<T: Clone + Send + Sync> Counted for ApplicationChannel<T> {
-    fn increment_counter(&self) {
-        self.reference_counter.fetch_add(1, Ordering::SeqCst);
-    }
-    fn decrement_counter(&self) {
-        self.reference_counter.fetch_sub(1, Ordering::SeqCst);
-    }
-    fn references(&self) -> usize {
-        self.reference_counter.load(Ordering::SeqCst)
-    }
-}
-
 impl<T: Clone + Send + Sync> WChannel<T> for ApplicationChannel<T> {
-    fn write(&mut self, item: T) -> Result<(), ChannelErrors> {
+    fn write(&self, item: T) -> Result<(), ChannelErrors> {
         // Waiting logic
         let lock = &self.available;
-        let mut available = lock.lock().unwrap();
-        while self.read_offset == self.update_offset(self.write_offset) && self.open {
-            available = self.write_cvar.wait(available).unwrap();
+        let mut stack = lock.lock().unwrap();
+        while stack.read_offset == (stack.write_offset + 1) % stack.length && stack.open {
+            stack = self.write_cvar.wait(stack).unwrap();
         }
 
         // Channel is closed
-        if !self.open {
+        if !stack.open {
             return Err(ChannelErrors::Closed);
         }
         // Write logic
-        self.stack[self.write_offset] = Some(item);
-        self.write_offset = self.update_offset(self.write_offset);
-
+        let offset = stack.write_offset;
+        stack.buffer[offset] = Some(item);
+        stack.write_offset = (stack.write_offset + 1) % stack.length;
         self.read_cvar.notify_one();
         Ok(())
     }
 
-    fn try_write(&mut self, item: T) -> Result<(), ChannelErrors> {
+    fn try_write(&self, item: T) -> Result<(), ChannelErrors> {
         // Waiting logic
         let lock = &self.available;
-        let _lock = lock.lock().unwrap();
-        if self.read_offset == self.update_offset(self.write_offset) && self.open {
+        let mut stack = lock.lock().unwrap();
+        if stack.read_offset == (stack.write_offset + 1) % stack.length && stack.open {
             return Err(ChannelErrors::NoneAvailable);
         }
 
         // Channel is closed
-        if !self.open {
+        if !stack.open {
             return Err(ChannelErrors::Closed);
         }
         // Write logic
-        self.stack[self.write_offset] = Some(item);
-        self.write_offset = self.update_offset(self.write_offset);
-
+        let offset = stack.write_offset;
+        stack.buffer[offset] = Some(item);
+        stack.write_offset = (stack.write_offset + 1) % stack.length;
         self.read_cvar.notify_one();
         Ok(())
     }
 }
 
 impl<T: Clone + Send + Sync> RChannel<T> for ApplicationChannel<T> {
-    fn read(&mut self) -> Result<T, ChannelErrors> {
+    fn read(&self) -> Result<T, ChannelErrors> {
         // Waiting logic
         let lock = &self.available;
-        let mut available = lock.lock().unwrap();
-        while self.read_offset == self.write_offset && self.open {
-            available = self.read_cvar.wait(available).unwrap();
+        let mut stack = lock.lock().unwrap();
+        while stack.read_offset == stack.write_offset && stack.open {
+            stack = self.read_cvar.wait(stack).unwrap();
         }
 
         // Channel is closed
-        if !self.open {
+        if !stack.open {
             return Result::Err(ChannelErrors::Closed);
         }
 
         // Retrieval logic
-        match &mut self.stack[self.read_offset] {
+        let offset = stack.read_offset;
+        match &mut stack.buffer[offset] {
             Some(_) => {
-                let res = Result::Ok(replace(&mut self.stack[self.read_offset], None).unwrap());
+                let res = Result::Ok(replace(&mut stack.buffer[offset], None).unwrap());
+                stack.read_offset = (stack.read_offset + 1) % stack.length;
                 self.write_cvar.notify_one();
-                self.read_offset = self.update_offset(self.read_offset);
                 res
             }
-            None => panic!("No value found in queue during syncronous call"),
+            None => panic!("No value found in queue during synchronous call"),
         }
     }
 
-    fn try_read(&mut self) -> Result<T, ChannelErrors> {
+    fn try_read(&self) -> Result<T, ChannelErrors> {
         // Waiting logic
         let lock = &self.available;
-        let _lock = lock.lock().unwrap();
-        while self.read_offset == self.write_offset && self.open {
+        let mut stack = lock.lock().unwrap();
+        while stack.read_offset == stack.write_offset && stack.open {
             return Err(ChannelErrors::NoneAvailable);
         }
 
         // Channel is closed
-        if !self.open {
+        if !stack.open {
             return Err(ChannelErrors::Closed);
         }
 
         // Retrieval logic
-        match &self.stack[self.read_offset] {
-            Some(a) => {
-                self.read_offset = self.update_offset(self.read_offset);
+        let offset = stack.read_offset;
+        match &stack.buffer[offset] {
+            Some(_) => {
+                let res = Result::Ok(replace(&mut stack.buffer[offset], None).unwrap());
+                stack.read_offset = (stack.read_offset + 1) % stack.length;
                 self.write_cvar.notify_one();
-                Result::Ok(a.clone())
+                res
             }
-            None => panic!("No value found in queue during syncronous call"),
+            None => panic!("No value found in queue during synchronous call"),
         }
     }
 }
 
 impl<T: Clone + Send + Sync> Closeable for ApplicationChannel<T> {
-    fn close(&mut self) {
-        // set to closed
-        self.open = false;
-        // clear data
-        for i in 0..self.length {
-            self.stack[i] = None;
-        }
+    fn close(&self) {
         let lock = &self.available;
+        let mut stack = lock.lock().unwrap();
+
+        // set to closed
+        stack.open = false;
+
+        // clear data
+        for i in 0..stack.length {
+            stack.buffer[i] = None;
+        }
         // notify all queues that this queue is closed
-        let _guard = lock.lock().unwrap();
         self.read_cvar.notify_all();
         self.write_cvar.notify_all();
     }
@@ -148,23 +142,15 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         // getting memory for stack
         let stack = vec![None; length].into_boxed_slice();
         ApplicationChannel {
-            reference_counter: 1.into(),
-            stack,
-            length,
-            available: Mutex::new(()),
+            available: Mutex::new(ApplicationStack{
+                buffer: stack,
+                length,
+                read_offset: 0,
+                write_offset: 0,
+                open: true,
+            }),
             read_cvar: Condvar::new(),
             write_cvar: Condvar::new(),
-            read_offset: 0,
-            write_offset: 0,
-            open: true,
         }
-    }
-
-    fn update_offset(&self, offset: usize) -> usize {
-        let mut new_offset = offset + 1;
-        if new_offset == self.length {
-            new_offset = 0;
-        }
-        new_offset
     }
 }
