@@ -32,7 +32,8 @@ impl<T: Clone + Send + Sync> WChannel<T> for ApplicationChannel<T> {
             return Err(ChannelErrors::Closed);
         }
         // Write logic
-        self.write(&mut stack, item)
+        self.write(&mut stack, item);
+        Ok(())
     }
 
     fn try_write(&self, item: T) -> Result<(), ChannelErrors> {
@@ -47,7 +48,8 @@ impl<T: Clone + Send + Sync> WChannel<T> for ApplicationChannel<T> {
             return Err(ChannelErrors::Closed);
         }
         // Write logic
-        self.write(&mut stack, item)
+        self.write(&mut stack, item);
+        Ok(())
     }
 }
 
@@ -150,11 +152,10 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         }
     }
 
-    fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) -> Result<(), ChannelErrors> {
+    fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) {
         let offset = stack.write_offset;
         stack.buffer[offset] = Some(val);
         stack.write_offset = (stack.write_offset + 1) % stack.length;
         self.read_cvar.notify_one();
-        Ok(())
     }
 }
