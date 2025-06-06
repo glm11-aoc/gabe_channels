@@ -6,7 +6,7 @@ use gabe_channels::{Channel, ChannelType};
 fn application_channel_deadlock_test() {
     let queue = Channel::<i32>::new(ChannelType::Application, 10);
 
-    let mut consumer_queue = queue.clone();
+    let consumer_queue = queue.clone();
     let consumer_thread = thread::spawn(move || {
         for expected in 0..1000 {
             let value = consumer_queue.read().expect("Failed to receive");
@@ -18,7 +18,7 @@ fn application_channel_deadlock_test() {
         }
     });
 
-    let mut producer_queue = queue.clone();
+    let producer_queue = queue.clone();
     let producer_thread = thread::spawn(move || {
         for i in 0..1000 {
             producer_queue.write(i).expect("Failed to send");
