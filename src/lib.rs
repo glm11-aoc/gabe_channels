@@ -34,7 +34,7 @@ pub enum ChannelErrors {
 }
 
 trait Closeable {
-    fn close(&self);
+    fn close(&self) -> Result<(), ChannelErrors>;
 }
 
 trait RChannel<T> {
@@ -61,11 +61,11 @@ mod tests {
         let queue = Channel::<i32>::new(ChannelType::Application, 20);
         let mut result = 0;
         println!("1");
-        let mut producer_queue = queue.clone();
+        let producer_queue = queue.clone();
         producer_queue.write(1).expect("Failed to send");
         println!("Produced: {}", 1);
         println!("2");
-        let mut consumer_queue = queue.clone();
+        let consumer_queue = queue.clone();
         *&mut result = consumer_queue.read().expect("Failed to receive");
         println!("3");
         assert_eq!(result, 1)
@@ -77,7 +77,7 @@ mod tests {
         let queue = Channel::<usize>::new(ChannelType::Application, 5);
         let result = Arc::new(Mutex::new(vec![0; SIZE]));
         let res_clone = result.clone();
-        let mut consumer_queue = queue.clone();
+        let consumer_queue = queue.clone();
         let consumer_thread = thread::spawn(move || {
             let mut i = 0;
             while i < SIZE {
@@ -86,7 +86,7 @@ mod tests {
                 i += 1;
             }
         });
-        let mut producer_queue = queue.clone();
+        let producer_queue = queue.clone();
         let producer_thread = thread::spawn(move || {
             let mut i = 0;
             while i < SIZE {
