@@ -23,7 +23,7 @@ impl<T: Clone + Send + Sync> WChannel<T> for ApplicationChannel<T> {
         while stack.read_offset == (stack.write_offset + 1) % stack.length && stack.open {
             stack = match self.write_cvar.wait(stack) {
                 Ok(v) => v,
-                Err(_) => return Err(ChannelErrors::Poisoned)
+                Err(_) => return Err(ChannelErrors::Poisoned),
             };
         }
 
@@ -60,7 +60,7 @@ impl<T: Clone + Send + Sync> RChannel<T> for ApplicationChannel<T> {
         while stack.read_offset == stack.write_offset && stack.open {
             stack = match self.read_cvar.wait(stack) {
                 Ok(v) => v,
-                Err(_) => return Err(ChannelErrors::Poisoned)
+                Err(_) => return Err(ChannelErrors::Poisoned),
             };
         }
 
@@ -136,13 +136,16 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         let lock = &self.available;
         match lock.lock() {
             Ok(v) => Ok(v),
-            Err(_) => Err(ChannelErrors::Poisoned)
+            Err(_) => Err(ChannelErrors::Poisoned),
         }
     }
 
-    fn read(&self, stack: &mut MutexGuard<ApplicationStack<T>>, offset: usize) -> Result<T, ChannelErrors> {
-        let res = match replace(&mut stack.buffer[offset], None)
-        {
+    fn read(
+        &self,
+        stack: &mut MutexGuard<ApplicationStack<T>>,
+        offset: usize,
+    ) -> Result<T, ChannelErrors> {
+        let res = match replace(&mut stack.buffer[offset], None) {
             Some(v) => v,
             None => return Err(ChannelErrors::NoneAvailable),
         };
@@ -151,10 +154,10 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         Ok(res)
     }
 
-fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) {
-    let offset = stack.write_offset;
-    stack.buffer[offset] = Some(val);
-    stack.write_offset = (stack.write_offset + 1) % stack.length;
-    self.read_cvar.notify_one();
-}
+    fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) {
+        let offset = stack.write_offset;
+        stack.buffer[offset] = Some(val);
+        stack.write_offset = (stack.write_offset + 1) % stack.length;
+        self.read_cvar.notify_one();
+    }
 }
