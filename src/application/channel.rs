@@ -21,7 +21,7 @@ impl<T: Clone + Send + Sync> WChannel<T> for ApplicationChannel<T> {
         // Waiting logic
         let mut stack = self.acquire_stack_lock()?;
         while stack.read_offset == (stack.write_offset + 1) % stack.length && stack.open {
-            stack = match self.write_cvar.wait(stack){
+            stack = match self.write_cvar.wait(stack) {
                 Ok(v) => v,
                 Err(_) => return Err(ChannelErrors::Poisoned)
             };
@@ -58,7 +58,7 @@ impl<T: Clone + Send + Sync> RChannel<T> for ApplicationChannel<T> {
         let mut stack = self.acquire_stack_lock()?;
         // Waiting logic
         while stack.read_offset == stack.write_offset && stack.open {
-            stack = match self.read_cvar.wait(stack){
+            stack = match self.read_cvar.wait(stack) {
                 Ok(v) => v,
                 Err(_) => return Err(ChannelErrors::Poisoned)
             };
@@ -120,7 +120,7 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         // getting memory for stack
         let stack = vec![None; length].into_boxed_slice();
         ApplicationChannel {
-            available: Mutex::new(ApplicationStack{
+            available: Mutex::new(ApplicationStack {
                 buffer: stack,
                 length,
                 read_offset: 0,
@@ -134,28 +134,27 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
 
     fn acquire_stack_lock(&self) -> Result<MutexGuard<ApplicationStack<T>>, ChannelErrors> {
         let lock = &self.available;
-        match lock.lock(){
+        match lock.lock() {
             Ok(v) => Ok(v),
             Err(_) => Err(ChannelErrors::Poisoned)
         }
     }
 
     fn read(&self, stack: &mut MutexGuard<ApplicationStack<T>>, offset: usize) -> Result<T, ChannelErrors> {
-        match &mut stack.buffer[offset] {
-            Some(_) => {
-                let res = Ok(replace(&mut stack.buffer[offset], None).unwrap());
-                stack.read_offset = (stack.read_offset + 1) % stack.length;
-                self.write_cvar.notify_one();
-                res
-            }
-            None => Err(ChannelErrors::NoneAvailable),
-        }
+        let res = match replace(&mut stack.buffer[offset], None)
+        {
+            Some(v) => v,
+            None => return Err(ChannelErrors::NoneAvailable),
+        };
+        stack.read_offset = (stack.read_offset + 1) % stack.length;
+        self.write_cvar.notify_one();
+        Ok(res)
     }
 
-    fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) {
-        let offset = stack.write_offset;
-        stack.buffer[offset] = Some(val);
-        stack.write_offset = (stack.write_offset + 1) % stack.length;
-        self.read_cvar.notify_one();
-    }
+fn write(&self, stack: &mut MutexGuard<ApplicationStack<T>>, val: T) {
+    let offset = stack.write_offset;
+    stack.buffer[offset] = Some(val);
+    stack.write_offset = (stack.write_offset + 1) % stack.length;
+    self.read_cvar.notify_one();
+}
 }
