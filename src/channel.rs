@@ -4,8 +4,6 @@ use crate::{
 };
 use std::sync::Arc;
 
-unsafe impl<T: Clone + Send + Sync> Send for Channel<T> {}
-
 impl<T: Clone + Send + Sync + 'static> Channel<T> {
     pub fn new(variant: ChannelType, buffer_size: usize) -> Self {
         match variant {

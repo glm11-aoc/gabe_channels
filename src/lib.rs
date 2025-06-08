@@ -72,7 +72,7 @@ mod tests {
     }
     #[test]
     fn threaded_test() {
-        // if this is too big, it'll stack overflow unless you use --release (thanks to storing the result) :-(
+        // if this is too big, it'll stack overflow unless you use --release (thanks to storing the result on stack before moving it) :-(
         const SIZE: usize = 100;
         let queue = Channel::<usize>::new(ChannelType::Application, 5);
         let result = Arc::new(Mutex::new(vec![0; SIZE]));
