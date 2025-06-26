@@ -111,7 +111,7 @@ impl<T: Clone + Send + Sync> Closeable for ApplicationChannel<T> {
 }
 
 impl<T: Clone + Send + Sync> ApplicationChannel<T> {
-    pub fn new(length: usize) -> ApplicationChannel<T> {
+    pub fn new(length: usize) -> Result<ApplicationChannel<T>, ChannelErrors> {
         if length >= usize::MAX {
             panic!(
                 "Doesn't support values greater than usize-1 to ensure reliable overflow handling"
@@ -119,7 +119,7 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
         }
         // getting memory for stack
         let stack = vec![None; length].into_boxed_slice();
-        ApplicationChannel {
+        Ok(ApplicationChannel {
             available: Mutex::new(ApplicationStack {
                 buffer: stack,
                 length,
@@ -129,7 +129,7 @@ impl<T: Clone + Send + Sync> ApplicationChannel<T> {
             }),
             read_cvar: Condvar::new(),
             write_cvar: Condvar::new(),
-        }
+        })
     }
 
     fn acquire_stack_lock(&self) -> Result<MutexGuard<ApplicationStack<T>>, ChannelErrors> {

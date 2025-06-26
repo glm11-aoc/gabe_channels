@@ -5,10 +5,10 @@ use crate::{
 use std::sync::Arc;
 
 impl<T: Clone + Send + Sync + 'static> Channel<T> {
-    pub fn new(variant: ChannelType, buffer_size: usize) -> Self {
+    pub fn new(variant: ChannelType, buffer_size: usize) -> Result<Self, ChannelErrors> {
         match variant {
             #[cfg(feature = "application")]
-            ChannelType::Application => Channel::Application(Arc::new(ApplicationChannel::<T>::new(buffer_size))),
+            ChannelType::Application => Ok(Channel::Application(Arc::new(ApplicationChannel::<T>::new(buffer_size)?))),
             #[cfg(feature = "device")]
             ChannelType::Device => todo!("Not Implemented"),
             #[cfg(feature = "network")]

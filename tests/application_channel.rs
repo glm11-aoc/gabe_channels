@@ -4,7 +4,7 @@ use gabe_channels::{Channel, ChannelType};
 
 #[test]
 fn application_channel_deadlock_test() {
-    let queue = Channel::<i32>::new(ChannelType::Application, 10);
+    let queue = Channel::<i32>::new(ChannelType::Application, 10).unwrap();
 
     let consumer_queue = queue.clone();
     let consumer_thread = thread::spawn(move || {

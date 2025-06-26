@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn basic_test() {
-        let queue = Channel::<i32>::new(ChannelType::Application, 20);
+        let queue = Channel::<i32>::new(ChannelType::Application, 20).unwrap();
         let mut result = 0;
         println!("1");
         let producer_queue = queue.clone();
@@ -74,7 +74,7 @@ mod tests {
     fn threaded_test() {
         // if this is too big, it'll stack overflow unless you use --release (thanks to storing the result on stack before moving it) :-(
         const SIZE: usize = 100;
-        let queue = Channel::<usize>::new(ChannelType::Application, 5);
+        let queue = Channel::<usize>::new(ChannelType::Application, 5).unwrap();
         let result = Arc::new(Mutex::new(vec![0; SIZE]));
         let res_clone = result.clone();
         let consumer_queue = queue.clone();
