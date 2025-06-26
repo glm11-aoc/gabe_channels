@@ -3,15 +3,18 @@ pub mod channel;
 mod device;
 mod network;
 
+use crate::device::DeviceChannel;
 use application::ApplicationChannel;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub enum Channel<T: Clone + Send + Sync> {
+pub enum Channel<T: Serialize + DeserializeOwned + Clone + Send + Sync> {
     #[cfg(feature = "application")]
     Application(Arc<ApplicationChannel<T>>),
     #[cfg(feature = "device")]
-    Device(Arc<ApplicationChannel<T>>),
+    Device(Arc<DeviceChannel<T>>),
     #[cfg(feature = "network")]
     Network(Arc<ApplicationChannel<T>>),
 }

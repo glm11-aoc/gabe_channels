@@ -8,10 +8,18 @@ edition = "2021"
 
 [features]
 application = []
-device = []
+device = ["serde", "serde_cbor"]
 network = ["rustls"]
 default = ["application", "device", "network"]
 
 [dependencies.rustls]
-version = "0.23.22"
+version = "0.23.28"
+optional = true
+
+[dependencies.serde]
+version = "1.0.219"
+optional = true
+
+[dependencies.serde_cbor]
+version = "0.11.2"
 optional = true
