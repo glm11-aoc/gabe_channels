@@ -1,4 +1,4 @@
-use crate::{ChannelErrors, Closeable, RChannel, WChannel};
+use crate::{ChannelErrors, Closeable, CreationErrors, RChannel, WChannel};
 use std::mem::replace;
 use std::sync::{Condvar, Mutex, MutexGuard};
 
@@ -111,7 +111,7 @@ impl<T: Clone + Send + Sync> Closeable for ApplicationChannel<T> {
 }
 
 impl<T: Clone + Send + Sync> ApplicationChannel<T> {
-    pub fn new(length: usize) -> Result<ApplicationChannel<T>, ChannelErrors> {
+    pub fn new(length: usize) -> Result<ApplicationChannel<T>, CreationErrors> {
         if length >= usize::MAX {
             panic!(
                 "Doesn't support values greater than usize-1 to ensure reliable overflow handling"

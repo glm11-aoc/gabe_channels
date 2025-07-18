@@ -1,22 +1,22 @@
-use crate::{
-    application::ApplicationChannel, device::DeviceChannel, Channel, ChannelErrors, ChannelType,
-    Closeable, RChannel, WChannel,
-};
+pub use crate::{application::ApplicationChannel, device::DeviceChannel};
+use crate::{Channel, ChannelErrors, ChannelType, Closeable, CreationErrors, RChannel, WChannel};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
 
 impl<T: Serialize + DeserializeOwned + Clone + Send + Sync> Channel<T> {
-    pub fn new(variant: ChannelType, buffer_size: usize) -> Result<Self, ChannelErrors> {
+    pub fn new(variant: ChannelType, buffer_size: usize) -> Result<Self, CreationErrors> {
         Ok(match variant {
             #[cfg(feature = "application")]
             ChannelType::Application => {
                 Channel::Application(Arc::new(ApplicationChannel::<T>::new(buffer_size)?))
             }
             #[cfg(feature = "device")]
-            ChannelType::Device => Channel::Device(Arc::new(DeviceChannel::<T>::new(buffer_size)?)),
+            ChannelType::Device(c) => {
+                Channel::Device(Arc::new(DeviceChannel::<T>::new(c, buffer_size)?))
+            }
             #[cfg(feature = "network")]
-            ChannelType::Network => todo!("Not Implemented"),
+            ChannelType::Network(c) => todo!("Not Implemented"),
         })
     }
     pub fn write(&self, val: T) -> Result<(), ChannelErrors> {

@@ -23,9 +23,18 @@ pub enum ChannelType {
     #[cfg(feature = "application")]
     Application,
     #[cfg(feature = "device")]
-    Device,
+    Device(DeviceConfig),
     #[cfg(feature = "network")]
-    Network,
+    Network(NetworkConfig),
+}
+
+pub struct DeviceConfig {
+    pub path: String,
+}
+
+pub struct NetworkConfig {
+    pub address: String,
+    pub port: i64,
 }
 
 #[derive(Debug)]
@@ -34,6 +43,11 @@ pub enum ChannelErrors {
     Poisoned,
     Full,
     Closed,
+}
+
+#[derive(Debug)]
+pub enum CreationErrors {
+    BadConfig,
 }
 
 trait Closeable {

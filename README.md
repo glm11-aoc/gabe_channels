@@ -9,7 +9,7 @@ extend it to allow for safe device and networked communication across the same A
 ## Example Usage
 ```rust
 fn main(){
-    let queue = Channel::<i32>::new(ChannelType::Application, 10);
+    let queue = Channel::<i32>::new(ChannelType::Application, 10).unwrap();
 
     let consumer_queue = queue.clone();
     let consumer_thread = thread::spawn(move || {

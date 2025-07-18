@@ -8,7 +8,7 @@ pub struct LocalDeviceStack<T: Serialize + DeserializeOwned + Clone + Send + Syn
 }
 
 impl<T: Serialize + DeserializeOwned + Clone + Send + Sync> LocalDeviceStack<T> {
-    pub fn new() -> DeviceChannel<T> {
+    pub fn new(path: String) -> LocalDeviceStack<T> {
         todo!()
     }
 }

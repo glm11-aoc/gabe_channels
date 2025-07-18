@@ -8,7 +8,7 @@ edition = "2021"
 
 [features]
 application = []
-device = ["serde", "serde_cbor"]
+device = []
 network = ["rustls"]
 default = ["application", "device", "network"]
 
@@ -18,8 +18,8 @@ optional = true
 
 [dependencies.serde]
 version = "1.0.219"
-optional = true
+default-features = false
 
-[dependencies.serde_cbor]
-version = "0.11.2"
+[dependencies.ciborium]
+version = "0.2.2"
 optional = true
